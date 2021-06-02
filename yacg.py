@@ -9,6 +9,7 @@ from yacg.builder.yamlBuilder import getModelFromYaml
 from yacg.generators.singleFileGenerator import renderSingleFileTemplate
 from yacg.generators.multiFileGenerator import renderMultiFileTemplate
 from yacg.generators.randomDataGenerator import renderRandomData
+from yacg.model.model import EnumType, ComplexType
 import yacg.util.yacg_utils as yacg_utils
 import yacg.model.config as config
 
@@ -32,6 +33,7 @@ parser.add_argument('--templateParameters', nargs='+', help='additional paramete
 parser.add_argument('--blackListed', nargs='+', help='types that should not be handled in the template')
 parser.add_argument('--whiteListed', nargs='+', help='types that should be handled in the template')
 parser.add_argument('--vars', nargs='+', help='variables that are passed to the processing')
+parser.add_argument('--usedFilesOnly', help='import models but only print the used files to stdout', action='store_true')
 
 
 def getFileExt(fileName):
@@ -149,16 +151,20 @@ def __blackWhiteListEntries2Objects(argsList):
 def _getJobConfigurationsFromArgs(args):
     job = config.Job()
     job.name = 'default'
-    for modelFile in args.models:
-        model = config.Model()
-        model.schema = modelFile
-        job.models.append(model)
+    _putArgModelsToJob(args, job)
     templateParameters = _getTemplateParameters(args)
     blackList = __blackWhiteListEntries2Objects(args.blackListed)
     whiteList = __blackWhiteListEntries2Objects(args.whiteListed)
     __getSingleFileTemplates(args, job, templateParameters, blackList, whiteList)
     __getMultiFileTemplates(args, job, templateParameters, blackList, whiteList)
     return [job]
+
+
+def _putArgModelsToJob(args, job):
+    for modelFile in args.models:
+        model = config.Model()
+        model.schema = modelFile
+        job.models.append(model)
 
 
 def getJobConfigurations(args):
@@ -170,6 +176,10 @@ def getJobConfigurations(args):
         templateParameters = _getTemplateParameters(args)
         vars = _getVars(args)
         jobArray = yacg_utils.getJobConfigurationsFromConfigFile(args.config, vars)
+        if (args.models is not None) and (len(args.models) > 0):
+            # there are models from the commandline that have to be mixed in the config file data
+            for job in jobArray:
+                _putArgModelsToJob(args, job)
         if len(templateParameters) == 0:
             return jobArray
         # mix in of command line parameters to increase flexibility
@@ -269,12 +279,10 @@ def _isConfigurationValid(codeGenerationJobs):
     return isValid
 
 
-def main():
-    """starts the program execution"""
-    args = parser.parse_args()
-    codeGenerationJobs = getJobConfigurations(args)
-    if not _isConfigurationValid(codeGenerationJobs):
-        sys.exit(1)
+def __doCodeGen(codeGenerationJobs):
+    """process the jobs to do the actual code generation
+    """
+
     for job in codeGenerationJobs:
         loadedTypes = readModels(job)
         for task in job.tasks:
@@ -296,6 +304,39 @@ def main():
                     task.blackListed,
                     task.whiteListed,
                     task.randomDataTask)
+
+
+def __printUsedFiles(codeGenerationJobs):
+    """process the jobs to do the actual code generation
+    """
+
+    usedFiles = []
+    for job in codeGenerationJobs:
+        loadedTypes = readModels(job)
+        for type in loadedTypes:
+            if isinstance(type, EnumType) or isinstance(type, ComplexType):
+                if type.source is not None:
+                    if type.source not in usedFiles:
+                        usedFiles.append(type.source)
+    if len(usedFiles) == 0:
+        print("No loaded files detected.")
+    else:
+        print()
+        print("The following files were loaded:")
+        for usedFile in usedFiles:
+            print("-> {}".format(usedFile))
+
+
+def main():
+    """starts the program execution"""
+    args = parser.parse_args()
+    codeGenerationJobs = getJobConfigurations(args)
+    if not _isConfigurationValid(codeGenerationJobs):
+        sys.exit(1)
+    if args.usedFilesOnly:
+        __printUsedFiles(codeGenerationJobs)
+    else:
+        __doCodeGen(codeGenerationJobs)
 
 
 if __name__ == '__main__':
