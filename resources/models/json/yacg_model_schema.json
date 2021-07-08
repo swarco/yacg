@@ -270,6 +270,26 @@
                 "metaModelType"
             ]
         },
+        "BytesType": {
+            "type": "object",
+            "description": "type for byte values, it will usually be rendered to a byte array",
+            "allOf": [
+                {
+                    "$ref": "#/definitions/Type"
+                },
+                {
+                    "properties": {
+                        "default": {
+                            "type": "string",
+                            "format": "byte"
+                        }
+                    }
+                }
+            ],
+            "__tags": [
+                "metaModelType"
+            ]
+        },
         "ComplexType": {
             "type": "object",
             "description": "complex type description",

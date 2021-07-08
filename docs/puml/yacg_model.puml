@@ -106,6 +106,13 @@ class DateTimeType {
 note top: type for timestamp values
 
 DateTimeType --|> Type
+class BytesType {
+        BytesType default 
+}
+
+note top: type for byte values, it\nwill usually be rendered to\na byte array
+
+BytesType --|> Type
 class ComplexType {
         StringType version 
         StringType name 
@@ -157,6 +164,7 @@ NumberType  *--  NumberTypeFormatEnum
     
 EnumType "0" *-- "n" Tag        
             
+    
     
     
     
